@@ -1,27 +1,13 @@
-package com.san
+package com.san.scala
 
 import scala.collection.mutable.{Map => MMap, ListBuffer}
 import scala.util.control.Breaks._
 
 /**
-  * Created by Santu on 29-02-2016.
-  * Its a sample program to extract certain elements from a multiline string.
+  * Created by Yesu on 23-03-2016.
   */
-object SnowFlakes extends App {
 
-  case class Criteria(operation: String, operand1: String, operand2: Option[String])
-
-  case class Query(projections: List[(String, Option[String])], tables: List[(String, Option[String])], joins: List[(String, Option[String], Criteria)], criteria: Option[Criteria], groupBy: Option[String], orderBy: Option[String], limit: Option[Int], offset: Option[Int])
-
-  val sampleelements ="""SELECT  name1 AS Name1, age AS AGE, film.film_id AS FID,  film.title AS title,
-                         | film.description AS description,  category.name AS category,  film.rental_rate AS price,
-                         | film.length AS length,  film.rating AS rating,  GROUP_CONCAT(CONCAT(actor.first_name, _utf8' ', actor.last_name) SEPARATOR ', ') AS actors
-                         |FROM  category LEFT JOIN  film_category ON
-                         |  category.category_id = film_category.category_id  LEFT JOIN film ON
-                         |  film_category.film_id = film.film_id  JOIN film_actor ON
-                         |  film.film_id = film_actor.film_id JOIN actor ON film_actor.actor_id = actor.actor_id  GROUP BY film.film_id;""".stripMargin.replaceAll(System.lineSeparator(), " ").trim
-  val sampleelement = sampleelements.dropRight(1)
-  val words = sampleelement.split("\\s+").toList.filter(_.trim.length > 0)
+class QueryParser {
 
   def findNext(words: List[String], toFind: String): List[String] = {
     val list = ListBuffer[String]()
@@ -45,13 +31,14 @@ object SnowFlakes extends App {
         val list = map.getOrElseUpdate(table, List())
         map.put(table, list :+ column)
       }
-      //if(pair._1.)
     }
     map.mapValues(_.distinct).toMap
   }
 
   //For columns as "c"
   def findColumns4(words: List[String]): List[String] = {
+    if(words == null) throw new IllegalArgumentException("Query cannot be null")
+
     val list = ListBuffer[String]()
     words.zipWithIndex.foreach { pair =>
       var indexTo = 0
@@ -67,6 +54,7 @@ object SnowFlakes extends App {
 
   //For columns as "c AS alias_name"
   def findColumns3(words: List[String]): List[String] = {
+
     val list = ListBuffer[String]()
     val intermediatelist = ListBuffer[String]()
     words.zipWithIndex.foreach { pair =>
@@ -76,7 +64,7 @@ object SnowFlakes extends App {
           if(pair._1.equalsIgnoreCase("AS")) {
             list.remove(pair._2, pair._2 + 1)
             intermediatelist.append(list(pair._2 - 1))
-          }C:\Users\Yesu\IdeaProjects\Sample1\src
+          }
         }
       }
     }
@@ -88,9 +76,9 @@ object SnowFlakes extends App {
     val list = ListBuffer[String]()
     words.zipWithIndex.foreach { pair =>
       if (pair._1.contains(toFind)) {
-          val res1: String = pair._1
-          val result = after(res1,toFind.toString)
-          list.append(result)
+        val res1: String = pair._1
+        val result = after(res1,toFind.toString)
+        list.append(result)
       }else {
         if (pair._1.isEmpty == false) {
           list.append(words(pair._2))
@@ -103,6 +91,8 @@ object SnowFlakes extends App {
   //For columns after the FROM Keyword in the query string.
   def findColumns1(words: List[String]): List[String] = {
     val list = ListBuffer[String]()
+    val intermediatelist = ListBuffer[String]()
+    var flag = false
     var indexRange = 0
     words.zipWithIndex.foreach { pair =>
       var indexTo = 0
@@ -115,14 +105,21 @@ object SnowFlakes extends App {
     }
     breakable {
       list.zipWithIndex.foreach { pair =>
-        if (pair._1.equalsIgnoreCase("ON") || (pair._1.equalsIgnoreCase("WHERE"))) {
+        if (pair._1.equalsIgnoreCase("ON")) {
           indexRange = list.size - pair._2
           break()
+        }else {
+          if (pair._1.equalsIgnoreCase("WHERE")) {
+            intermediatelist.append(list(pair._2 + 1))
+            flag = true
+          }
         }
       }
     }
     val finallist = findColumnsFromOn(list.toList.takeRight(indexRange - 1))
-    finallist
+    if(flag) {
+      intermediatelist.toList
+    }else finallist
   }
 
   def findColumnsFromOn(words: List[String]) : List[String] = {
@@ -184,14 +181,31 @@ object SnowFlakes extends App {
     }
     return value.substring(adjustedPosA, posB);
   }
+}
+object QueryParser extends App{
+  val qp = new QueryParser
+// For getting or queries from the user.
+//  val sampleelements = scala.io.StdIn.readLine()
+  val sampleelements ="""SELECT  name1 AS Name1, age AS AGE, film.film_id AS FID,  film.title AS title,
+                        | film.description AS description,  category.name AS category,  film.rental_rate AS price,
+                        | film.length AS length,  film.rating AS rating,  GROUP_CONCAT(CONCAT(actor.first_name, _utf8' ', actor.last_name) SEPARATOR ', ') AS actors
+                        |FROM  category LEFT JOIN  film_category ON
+                        |  category.category_id = film_category.category_id  LEFT JOIN film ON
+                        |  film_category.film_id = film.film_id  JOIN film_actor ON
+                        |  film.film_id = film_actor.film_id JOIN actor ON film_actor.actor_id = actor.actor_id  GROUP BY film.film_id;""".stripMargin.replaceAll(System.lineSeparator(), " ").trim
+  val sampleelement = sampleelements.dropRight(1)
+  val words = sampleelement.split("\\s+").toList.filter(_.trim.length > 0)
+  val query = "SELECT value1, value3 FROM TableValue WHERE val2 = 'game'"
+//  val words = query.split("\\s+").toList.filter(_.trim.length > 0)
 
-  val f4 = findColumns4(words)
-  val f3 = findColumns3(f4)
-  val f2 = findColumns2(f3,'.').distinct
-  val f1 = findColumns1(words).distinct
+  val f4 = qp.findColumns4(words)
+  val f3 = qp.findColumns3(f4)
+  val f2 = qp.findColumns2(f3,'.').distinct
+  val f1 = qp.findColumns1(words).distinct
   val result = f2:::f1.distinct
   println(result)
-  val res = findTablesAndColumns(words,'.')
+  val res = qp.findTablesAndColumns(words,'.')
+  println(res)
   res.foreach(pair => {
     if (pair._1.nonEmpty){
       val tableName = pair._1
